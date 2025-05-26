@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Chess</title>
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+        }
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #eee;
+            padding-top: 20px;
+        }
+
+        table {
+            border-collapse: collapse;
+        }
+        td {
+            width: 60px;
+            height: 60px;
+            padding: 0;
+            text-align: center;
+            vertical-align: middle;
+            user-select: none;
+        }
+        .white {
+            background: #f0d9b5;
+        }
+        .black {
+            background: #b58863;
+        }
+        .in-check {
+            background: red !important;
+        }
+
+        img {
+            max-width: 50px;
+            max-height: 50px;
+        }
+
+        #status-message {
+            margin-top: 10px;
+            font-weight: bold;
+            font-size: 18px;
+            color: #333;
+            min-height: 24px;
+        }
+
+        #restart-button {
+            margin-top: 15px;
+            padding: 8px 16px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+<h2>Chess</h2>
+<div id="status-message"></div>
+<button id="restart-button" onclick="restartGame()">Restart Game</button>
+
+<div style="display: flex; flex-direction: row; align-items: flex-start; gap: 20px; margin-top: 20px;">
+    <table id="chessboard">
+        <tbody>
+        {% for row_idx in range(board|length) %}
+            <tr>
+            {% for col_idx in range(board[row_idx]|length) %}
+                {% set cell = board[row_idx][col_idx] %}
+                <td 
+                    class="{{ cell.color }}" 
+                    data-row="{{ row_idx }}" 
+                    data-col="{{ col_idx }}"
+                    onclick="handleClick(this)"
+                >
+                    {% if cell.piece %}
+                        <img src="{{ url_for("static", filename="pieces/" + cell.piece + ".svg") }}" alt="{{ cell.piece }}">
+                    {% endif %}
+                </td>
+            {% endfor %}
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+
+    <div id="move-log" style="max-height: 480px; overflow-y: auto; width: 200px; background: #fff; padding: 10px; border: 1px solid #ccc;">
+        <strong>Move Log:</strong>
+        <ol id="move-log-list" style="padding-left: 20px;"></ol>
+    </div>
+</div>
+
+<script>
+function handleClick(td) {
+    const row = parseInt(td.getAttribute("data-row"));
+    const col = parseInt(td.getAttribute("data-col"));
+
+    fetch("/", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({ row, col })
+    })
+    .then(response => response.json())
+    .then(data => {
+
+        if (data.promotionPending) {
+            const piece = prompt("Promote to: Q (Queen), R (Rook), B (Bishop), N (Knight)", "Q");
+            if (["Q", "R", "B", "N"].includes(piece)) {
+                fetch("/promote", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        row: data.fromRow,
+                        col: data.fromCol,
+                        newRow: data.toRow,
+                        newCol: data.toCol,
+                        promotion: piece
+                    })
+                })
+                .then(response => response.json())
+                .then(updateBoard);
+            } else {
+                alert("Invalid piece selected. Promotion cancelled.");
+            }
+        } else {
+            updateBoard(data);
+        }
+    });
+}
+
+
+function updateBoard(data) {
+    const board = data.board;
+    const status = data.status;
+    const moveLog = data.moveLog || [];
+
+    const table = document.getElementById("chessboard");
+    for (let i = 0; i < board.length; i++) {
+        const row = table.rows[i];
+        for (let j = 0; j < board[i].length; j++) {
+            const cell = board[i][j];
+            const td = row.cells[j];
+            td.className = cell.color;
+
+            if (cell.piece) {
+                td.innerHTML = `<img src="/static/pieces/${cell.piece}.svg" alt="${cell.piece}">`;
+            } else {
+                td.innerHTML = "";
+            }
+        }
+    }
+
+    const statusDiv = document.getElementById("status-message");
+    statusDiv.textContent = status || "";
+
+    const logList = document.getElementById("move-log-list");
+    logList.innerHTML = "";
+    moveLog.forEach(move => {
+        const li = document.createElement("li");
+        li.textContent = move;
+        logList.appendChild(li);
+    });
+}
+
+function restartGame() {
+    fetch("/restart", { method: "POST" })
+        .then(response => response.json())
+        .then(data => updateBoard(data));
+}
+</script>
+
+</body>
+</html>
