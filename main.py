@@ -18,6 +18,7 @@ class ChessGame:
         self.lastClicked = None
         self.whiteToMove = True
         self.checkmate = False
+        self.stalemate = False
         self.isCapture = False
         self.isCheck = False
         self.isDoubleCheck = False
@@ -260,6 +261,23 @@ class ChessGame:
             return False
         self.checkmate = True
         return True
+    
+    def is_stalemate(self):
+        if self.whiteToMove:
+            color = "w"
+        else:
+            color = "b"
+        if self.is_in_check(color) == 0:
+            for row in range(8):
+                for col in range(8):
+                    piece = self.board[row][col]
+                    if piece is not None and piece[0] == color:
+                        if len(self.get_legal_moves(row, col)) > 0:
+                            return False
+        else:
+            return False
+        self.stalemate = True
+        return True
                         
                         
     def get_legal_moves(self, row, col):
@@ -438,8 +456,11 @@ def index():
 
         if game.checkmate:
             status = "Checkmate! Game over."
+            
+        if game.stalemate:
+            status = "Stalemate! Game over."
 
-        if game.lastClicked and game.get_piece(*game.lastClicked) and game.lastClicked != [newRow, newCol] and not game.checkmate:
+        if game.lastClicked and game.get_piece(*game.lastClicked) and game.lastClicked != [newRow, newCol] and not game.checkmate and not game.stalemate:
             startRow, startCol = game.lastClicked
             piece = game.get_piece(startRow, startCol)
 
